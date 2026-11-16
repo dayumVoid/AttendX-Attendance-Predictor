@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AttendX – Attendance Predictor</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--text:#1b1f2a;--muted:#667085;--line:#e3e6ee;--accent:#4f46e5;--accent-t:#fff;--ok:#117a43;--okbg:#e1f6ea;--bad:#b42318;--badbg:#fde8e6;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1220;--card:#181c2e;--text:#eceefa;--muted:#9aa1ba;--line:#2a2f47;--accent:#818cf8;--accent-t:#0f1220;--ok:#5fd397;--okbg:#12362a;--bad:#ff8a80;--badbg:#3d1c1c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1220;--card:#181c2e;--text:#eceefa;--muted:#9aa1ba;--line:#2a2f47;--accent:#818cf8;--accent-t:#0f1220;--ok:#5fd397;--okbg:#12362a;--bad:#ff8a80;--badbg:#3d1c1c;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+h1{margin:0;font-size:1.5rem}h1 span{color:var(--accent)}
+.sub{color:var(--muted);font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+h2{margin:0 0 12px;font-size:1.05rem}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+label{display:flex;flex-direction:column;font-size:.8rem;color:var(--muted);gap:4px;flex:1;min-width:120px}
+input,select{font:inherit;padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--text);width:100%}
+button{font:inherit;font-weight:600;padding:9px 16px;border-radius:9px;border:0;background:var(--accent);color:var(--accent-t);cursor:pointer}
+button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+button.sm{padding:5px 10px;font-size:.8rem}
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{background:var(--card);color:var(--text);border:1px solid var(--line)}
+.tabs button.on{background:var(--accent);color:var(--accent-t);border-color:var(--accent)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.92rem;min-width:520px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:.75rem;font-weight:700}
+.safe{background:var(--okbg);color:var(--ok)}.short{background:var(--badbg);color:var(--bad)}
+.bar{height:6px;background:var(--line);border-radius:9px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--ok)}.bar i.short{background:var(--bad)}
+.overall{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-weight:600;flex-wrap:wrap;gap:8px}
+.msg{padding:10px 12px;border-radius:10px;margin-top:10px;font-size:.92rem}
+.msg.safe{background:var(--okbg);color:var(--ok)}.msg.short{background:var(--badbg);color:var(--bad)}
+.empty{color:var(--muted);text-align:center;padding:18px 0}
+.hide{display:none}
+.big{font-size:1.8rem;font-weight:700}
+.pred{display:grid;gap:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div><h1>Attend<span>X</span></h1><div class="sub" id="who">Student Attendance Predictor</div></div>
+  <div class="row"><label style="min-width:90px;flex:none">Target %<input id="target" type="number" min="1" max="99" value="75"></label>
+  <button class="ghost" id="reset">Reset data</button></div>
+</header>
+
+<div class="card hide" id="setup">
+  <h2>Welcome – set up your profile</h2>
+  <div class="row"><label>Student name<input id="sname"></label><label>Roll number<input id="sroll"></label><button id="sgo">Start</button></div>
+</div>
+
+<div id="app" class="hide">
+  <div class="tabs" id="tabs">
+    <button data-t="summary" class="on">Summary</button><button data-t="add">Add subject</button>
+    <button data-t="update">Update</button><button data-t="predict">Predict</button><button data-t="forecast">Forecast</button>
+  </div>
+
+  <section id="t-summary" class="card"><h2>Attendance summary</h2><div class="scroll" id="sumbox"></div></section>
+
+  <section id="t-add" class="card hide"><h2>Add subject</h2>
+    <div class="row"><label>Subject name<input id="cname"></label>
+    <label>Type<select id="ctype"><option>Lecture</option><option>Lab</option></select></label>
+    <label>Held so far<input id="cheld" type="number" min="0" value="0"></label>
+    <label>Attended so far<input id="catt" type="number" min="0" value="0"></label>
+    <button id="cadd">Add</button></div><div id="addmsg"></div></section>
+
+  <section id="t-update" class="card hide"><h2>Update attendance</h2>
+    <div class="row"><label>Subject<select id="usel"></select></label>
+    <label>New classes attended<input id="upres" type="number" min="0" value="0"></label>
+    <label>New classes missed<input id="uabs" type="number" min="0" value="0"></label>
+    <button id="ugo">Update</button></div><div id="umsg"></div></section>
+
+  <section id="t-predict" class="card hide"><h2>How many more classes do I need?</h2><div id="predbox" class="pred"></div></section>
+
+  <section id="t-forecast" class="card hide"><h2>Semester forecast</h2>
+    <div class="row"><label>Subject<select id="fsel"></select></label>
+    <label>Classes remaining<input id="frem" type="number" min="0" value="20"></label>
+    <label>Planning to attend<input id="fplan" type="number" min="0" value="0"></label>
+    <button id="fgo">Forecast</button></div><div id="fbox"></div></section>
+</div>
+</div>
+
+<script>
+// ---- Classes (ported from the C++ source) ----
+class Course{
+  constructor(name,attended,held){
+    if(attended<0||held<0||attended>held) throw new Error("Invalid attendance numbers");
+    this.name=name;this.attended=attended;this.held=held;
+  }
+  getType(){throw new Error("abstract")}
+  markPresent(n=1){this.attended+=n;this.held+=n}
+  markAbsent(n=1){this.held+=n}
+  percentage(){return this.held===0?0:100*this.attended/this.held}
+}
+class Lecture extends Course{getType(){return "Lecture"}}
+class Lab extends Course{getType(){return "Lab"}}
+
+class Student{
+  constructor(){this.name="";this.roll="";this.courses=[]}
+  addCourse(c){this.courses.push(c)}
+  totalAttended(){return this.courses.reduce((s,c)=>s+c.attended,0)}
+  totalHeld(){return this.courses.reduce((s,c)=>s+c.held,0)}
+}
+
+class Predictor{
+  constructor(target=75){this.target=target}
+  currentPercentage(a,h){return h===0?0:100*a/h}
+  meetsTarget(a,h){return 100*a>=this.target*h}
+  classesNeeded(a,h){
+    if(this.meetsTarget(a,h))return 0;
+    return Math.ceil((this.target*h-100*a)/(100-this.target)-1e-9);
+  }
+  classesCanSkip(a,h){
+    if(!this.meetsTarget(a,h))return 0;
+    return Math.floor((100*a-this.target*h)/this.target+1e-9);
+  }
+  predictFinal(a,h,rem,will){
+    const t=h+rem;return t===0?0:100*(a+will)/t;
+  }
+  minimumToAttend(a,h,rem){
+    let n=Math.ceil(this.target*(h+rem)/100-a-1e-9);
+    if(n<0)n=0;
+    return n>rem?-1:n;
+  }
+}
+
+class Storage{
+  constructor(key){this.key=key}
+  save(s,target){
+    try{localStorage.setItem(this.key,JSON.stringify({name:s.name,roll:s.roll,target,
+      courses:s.courses.map(c=>({type:c.getType(),name:c.name,attended:c.attended,held:c.held}))}));return true}catch(e){return false}
+  }
+  load(s){
+    try{
+      const raw=localStorage.getItem(this.key);if(!raw)return null;
+      const d=JSON.parse(raw);s.name=d.name||"";s.roll=d.roll||"";s.courses=[];
+      (d.courses||[]).forEach(c=>{try{s.addCourse(c.type==="Lab"?new Lab(c.name,c.attended,c.held):new Lecture(c.name,c.attended,c.held))}catch(e){}});
+      return d;
+    }catch(e){return null}
+  }
+  clear(){try{localStorage.removeItem(this.key)}catch(e){}}
+}
+
+// ---- App ----
+const $=id=>document.getElementById(id);
+const student=new Student(), predictor=new Predictor(75), storage=new Storage("attendx-data");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=n=>n.toFixed(1);
+const num=id=>Math.max(0,parseInt($(id).value,10)||0);
+const pill=ok=>`<span class="pill ${ok?"safe":"short"}">${ok?"SAFE":"SHORT"}</span>`;
+const save=()=>storage.save(student,predictor.target);
+
+function renderAll(){
+  $("who").textContent=student.name?`${student.name} · ${student.roll}`:"Student Attendance Predictor";
+  const opts=student.courses.map((c,i)=>`<option value="${i}">${esc(c.name)} (${c.getType()})</option>`).join("");
+  $("usel").innerHTML=opts;$("fsel").innerHTML=opts;
+  renderSummary();renderPredict();
+}
+
+function renderSummary(){
+  const cs=student.courses;
+  if(!cs.length){$("sumbox").innerHTML='<div class="empty">No subjects added yet. Use “Add subject”.</div>';return}
+  const rows=cs.map((c,i)=>{
+    const ok=predictor.meetsTarget(c.attended,c.held),p=c.percentage();
+    return `<tr><td>${i+1}</td><td>${esc(c.name)}</td><td>${c.getType()}</td><td>${c.attended}</td><td>${c.held}</td>
+    <td>${fmt(p)}%<div class="bar"><i class="${ok?"":"short"}" style="width:${Math.min(100,p)}%"></i></div></td><td>${pill(ok)}</td>
+    <td><button class="ghost sm" data-del="${i}">Remove</button></td></tr>`}).join("");
+  const a=student.totalAttended(),h=student.totalHeld();
+  $("sumbox").innerHTML=`<table><thead><tr><th>#</th><th>Subject</th><th>Type</th><th>Attended</th><th>Held</th><th>Percent</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="overall"><span>Overall: ${a}/${h} = ${fmt(predictor.currentPercentage(a,h))}%</span>${pill(predictor.meetsTarget(a,h))}</div>`;
+}
+
+function line(label,a,h,type){
+  if(predictor.meetsTarget(a,h))
+    return `<div class="msg safe"><b>${esc(label)}</b>: SAFE. You can miss ${predictor.classesCanSkip(a,h)} more ${type}(s) and stay at or above the target.</div>`;
+  return `<div class="msg short"><b>${esc(label)}</b>: SHORT. Attend the next ${predictor.classesNeeded(a,h)} ${type}(s) in a row to reach the target.</div>`;
+}
+function renderPredict(){
+  if(!student.courses.length){$("predbox").innerHTML='<div class="empty">No subjects added yet.</div>';return}
+  const a=student.totalAttended(),h=student.totalHeld();
+  $("predbox").innerHTML=`<div class="sub">Target attendance: ${predictor.target}%</div>`+
+    student.courses.map(c=>line(`${c.name} (${c.getType()})`,c.attended,c.held,c.getType())).join("")+
+    line("Overall",a,h,"class");
+}
+
+// tabs
+$("tabs").addEventListener("click",e=>{
+  const t=e.target.dataset.t;if(!t)return;
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b===e.target));
+  ["summary","add","update","predict","forecast"].forEach(k=>$("t-"+k).classList.toggle("hide",k!==t));
+});
+
+$("sgo").onclick=()=>{
+  const n=$("sname").value.trim(),r=$("sroll").value.trim();
+  if(!n||!r)return;
+  student.name=n;student.roll=r;save();
+  $("setup").classList.add("hide");$("app").classList.remove("hide");renderAll();
+};
+
+$("cadd").onclick=()=>{
+  const name=$("cname").value.trim(),held=num("cheld"),att=num("catt");
+  try{
+    if(!name)throw new Error("Enter a subject name");
+    const C=$("ctype").value==="Lab"?Lab:Lecture;
+    student.addCourse(new C(name,att,held));save();renderAll();
+    $("addmsg").innerHTML='<div class="msg safe">Subject added.</div>';
+    $("cname").value="";
+  }catch(err){$("addmsg").innerHTML=`<div class="msg short">${esc(err.message)}</div>`}
+};
+
+$("ugo").onclick=()=>{
+  const c=student.courses[$("usel").value];
+  if(!c){$("umsg").innerHTML='<div class="msg short">No subjects added yet.</div>';return}
+  c.markPresent(num("upres"));c.markAbsent(num("uabs"));save();
+  const sel=$("usel").value;renderAll();$("usel").value=sel;
+  $("umsg").innerHTML=`<div class="msg safe">Updated. Attendance is now ${fmt(c.percentage())}%</div>`;
+};
+
+$("fgo").onclick=()=>{
+  const c=student.courses[$("fsel").value];
+  if(!c){$("fbox").innerHTML='<div class="msg short">No subjects added yet.</div>';return}
+  const rem=num("frem"),a=c.attended,h=c.held;
+  const min=predictor.minimumToAttend(a,h,rem),best=predictor.predictFinal(a,h,rem,rem);
+  let out=`<div class="msg">If you attend all ${rem} remaining classes: <b>${fmt(best)}%</b></div>`;
+  if(min<0){out+=`<div class="msg short">Even with full attendance you cannot reach ${predictor.target}%.</div>`}
+  else{
+    const plan=Math.min(num("fplan"),rem),fin=predictor.predictFinal(a,h,rem,plan),ok=fin+1e-9>=predictor.target;
+    out+=`<div class="msg">Minimum you must attend out of ${rem}: <b>${min}</b>. You can afford to miss at most <b>${rem-min}</b> of them.</div>
+    <div class="msg ${ok?"safe":"short"}">Planning to attend ${plan}: predicted final attendance <b>${fmt(fin)}%</b> (${ok?"SAFE":"SHORT"})</div>`;
+  }
+  $("fbox").innerHTML=out;
+};
+
+$("sumbox").addEventListener("click",e=>{
+  const i=e.target.dataset.del;if(i===undefined)return;
+  student.courses.splice(+i,1);save();renderAll();
+});
+
+$("target").addEventListener("change",()=>{
+  let v=parseFloat($("target").value);if(!(v>=1&&v<=99))v=75;
+  $("target").value=v;predictor.target=v;save();renderAll();
+});
+
+$("reset").onclick=()=>{
+  if(!confirm("Delete all saved data?"))return;
+  storage.clear();location.reload();
+};
+
+// startup (like Menu::run: load saved data, else setup)
+const d=storage.load(student);
+if(d&&student.name){predictor.target=d.target||75;$("target").value=predictor.target;$("app").classList.remove("hide");renderAll()}
+else $("setup").classList.remove("hide");
+</script>
+</body>
+</html>
